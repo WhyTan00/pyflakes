@@ -2008,6 +2008,43 @@ class TestStringFormatting(TestCase):
             '%s after' % (x,)
         ''')
 
+    def test_percent_format_nested_mapping_keys(self):
+        for key in (
+                '', 'call(a, b)', 'outer(inner(value))',
+                "date.strftime('%Y-%m-%d')", 'key(\N{SNOWMAN}\nvalue)',
+        ):
+            with self.subTest(key=key):
+                template = '%(' + key + ')s'
+                values = {key: 'value'}
+                self.assertEqual(template % values, 'value')
+                self.flakes(f'{template!r} % {values!r}')
+
+    def test_percent_format_nested_mapping_keys_with_specifiers(self):
+        template = '%% %(outer(inner))#08x %(other())-5s end'
+        values = {'outer(inner)': 42, 'other()': 'yes'}
+        self.assertEqual(template % values, '% 0x00002a yes   end')
+        self.flakes(f'{template!r} % {values!r}')
+
+    def test_percent_format_nested_mapping_key_arguments(self):
+        self.flakes('''
+            '%(call(value))s' % {}
+        ''', m.PercentFormatMissingArgument)
+        self.flakes('''
+            '%(call(value))s' % {'call(value)': 1, 'other': 2}
+        ''', m.PercentFormatExtraNamedArguments)
+
+    def test_percent_format_unclosed_mapping_keys(self):
+        for template in ('%(', '%(outer(inner)s', '%(outer(inner))'):
+            with self.subTest(template=template):
+                self.flakes(f'{template!r} % {{}}', m.PercentFormatInvalidFormat)
+
+    def test_percent_format_deeply_nested_mapping_key(self):
+        key = '(' * 200 + 'value' + ')' * 200
+        template = '%(' + key + ')s'
+        values = {key: 'value'}
+        self.assertEqual(template % values, 'value')
+        self.flakes(f'{template!r} % {values!r}')
+
 
 class TestAsyncStatements(TestCase):
 

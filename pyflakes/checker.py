@@ -86,7 +86,6 @@ def _is_name_or_attr(node, name):  # type: (ast.AST, str) -> bool
     )
 
 
-MAPPING_KEY_RE = re.compile(r'\(([^()]*)\)')
 CONVERSION_FLAG_RE = re.compile('[#0+ -]*')
 WIDTH_RE = re.compile(r'(?:\*|\d*)')
 PRECISION_RE = re.compile(r'(?:\.(?:\*|\d*))?')
@@ -125,10 +124,19 @@ def parse_percent_format(s):
                     i += 1
                     in_fmt = True
             else:
-                key_match = MAPPING_KEY_RE.match(s, i)
-                if key_match:
-                    key = key_match.group(1)
-                    i = key_match.end()
+                if s[i] == '(':
+                    key_start = i + 1
+                    depth = 1
+                    i += 1
+                    while i < len(s) and depth:
+                        if s[i] == '(':
+                            depth += 1
+                        elif s[i] == ')':
+                            depth -= 1
+                        i += 1
+                    if depth:
+                        raise ValueError('end-of-string while parsing mapping key')
+                    key = s[key_start:i - 1]
                 else:
                     key = None
 
